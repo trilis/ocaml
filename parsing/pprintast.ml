@@ -222,6 +222,8 @@ let rec longident f = function
 
 let longident_loc f x = pp f "%a" longident x.txt
 
+let string_loc f x = pp f "%s" x.txt
+
 let constant f = function
   | Pconst_char i ->
       pp f "%C"  i
@@ -449,8 +451,21 @@ and simple_pattern ctxt (f:Format.formatter) (x:pattern) : unit =
   if x.ppat_attributes <> [] then pattern ctxt f x
   else match x.ppat_desc with
     | Ppat_construct (({txt=Lident ("()"|"[]" as x);_}), _) -> pp f  "%s" x
+    | Ppat_parameterized (li, el, p) ->
+        pp f "@[<2><%a %a> %a@]"
+        longident_loc li
+        (list (expression ctxt) ~sep:" ") el
+        (pattern1 ctxt) p
+        
     | Ppat_any -> pp f "_";
     | Ppat_var ({txt = txt;_}) -> protect_ident f txt
+    | Ppat_structured_name (_, tags) -> 
+        pp f "@[<2>(|%a|)@]"
+          (fun f -> function
+          | Total_single   id -> string_loc f id
+          | Partial_single id -> pp f "%a|_" string_loc id
+          | Total_multi   ids -> list string_loc ~sep:"|" f ids)
+          tags
     | Ppat_array l ->
         pp f "@[<2>[|%a|]@]"  (list (pattern1 ctxt) ~sep:";") l
     | Ppat_unpack { txt = None } ->

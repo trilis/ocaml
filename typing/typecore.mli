@@ -128,10 +128,12 @@ val self_coercion : (Path.t * Location.t list ref) list ref
 type error =
   | Constructor_arity_mismatch of Longident.t * int * int
   | Label_mismatch of Longident.t * Ctype.Unification_trace.t
+  | Too_many_tags_for_active_pattern of int
   | Pattern_type_clash :
       Ctype.Unification_trace.t * _ Typedtree.pattern_desc option -> error
   | Or_pattern_type_clash of Ident.t * Ctype.Unification_trace.t
   | Multiply_bound_variable of string
+  | Multiply_bound_active_tag of string
   | Orpat_vars of Ident.t * Ident.t list
   | Expr_type_clash of
       Ctype.Unification_trace.t * type_forcing_context option
@@ -152,6 +154,7 @@ type error =
   | Private_label of Longident.t * type_expr
   | Private_constructor of constructor_description * type_expr
   | Unbound_instance_variable of string * string list
+  | Unbound_tag of string
   | Instance_variable_not_mutable of string
   | Not_subtype of Ctype.Unification_trace.t * Ctype.Unification_trace.t
   | Outside_class

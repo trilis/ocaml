@@ -75,8 +75,12 @@ and 'k pattern_desc =
   (* value patterns *)
   | Tpat_any : value pattern_desc
         (** _ *)
-  | Tpat_var : Ident.t * string loc -> value pattern_desc
-        (** x *)
+  | Tpat_var : Ident.t * string loc * var_kind -> value pattern_desc
+        (** x                 Tvar_plain
+            (|C|)             Tvar_total_single   C
+            (|C_1|...|C_n|)   Tvar_total_multi    [C_1; ...; C_n]
+            (|C|_|)           Tvar_partial_single C
+          *)
   | Tpat_alias :
       value general_pattern * Ident.t * string loc -> value pattern_desc
         (** P as a *)
@@ -94,6 +98,21 @@ and 'k pattern_desc =
         (** C                []
             C P              [P]
             C (P1, ..., Pn)  [P1; ...; Pn]
+          *)
+  | Tpat_active :
+      Longident.t loc * Path.t * Types.value_description *
+        expression list * pattern list ->
+      value pattern_desc
+        (** C                              []             []
+            C             P                []             [P]
+            C             (P1, ..., Pm)    []             [P1; ...; Pm]
+            <C E1 ... En>                  [E1; ...; En]  []
+            <C E1 ... En> P                [E1; ...; En]  [P]
+            <C E1 ... En> (P1, ..., Pm)    [E1; ...; En]  [P1; ...; Pm]
+            where C is a tag of some active pattern, i.e. belongs to some
+            structured name (|C1|...|C|...|Cn|) or (|C|_|)
+
+            Invariant: [Types.value_description.val_kind = Val_active_tag _]
           *)
   | Tpat_variant :
       label * value general_pattern option * Types.row_desc ref ->
@@ -144,6 +163,12 @@ and 'k pattern_desc =
          *)
 
 and tpat_value_argument = private value general_pattern
+
+and var_kind =
+    | Tvar_plain                                          (* x               *)
+  | Tvar_total_single   of Ident.t * string loc         (* (|C|)           *)
+  | Tvar_partial_single of Ident.t * string loc         (* (|C|_|)         *)
+  | Tvar_total_multi    of (Ident.t * string loc) list  (* (|C1|...|Cn|)   *)
 
 and expression =
   { exp_desc: expression_desc;

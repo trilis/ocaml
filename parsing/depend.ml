@@ -165,36 +165,39 @@ let add_type_exception bv te =
 
 let pattern_bv = ref String.Map.empty
 
-let rec add_pattern bv pat =
+let rec add_pattern1 bv pat =
   match pat.ppat_desc with
     Ppat_any -> ()
   | Ppat_var _ -> ()
-  | Ppat_alias(p, _) -> add_pattern bv p
+  | Ppat_structured_name _ -> ()
+  | Ppat_alias(p, _) -> add_pattern1 bv p
   | Ppat_interval _
   | Ppat_constant _ -> ()
-  | Ppat_tuple pl -> List.iter (add_pattern bv) pl
-  | Ppat_construct(c, op) -> add bv c; add_opt add_pattern bv op
+  | Ppat_tuple pl -> List.iter (add_pattern1 bv) pl
+  | Ppat_construct(c, op) -> add bv c; add_opt add_pattern1 bv op
+  | Ppat_parameterized(li, el, p) ->
+      add bv li; List.iter (add_expr bv) el; add_pattern1 bv p
   | Ppat_record(pl, _) ->
-      List.iter (fun (lbl, p) -> add bv lbl; add_pattern bv p) pl
-  | Ppat_array pl -> List.iter (add_pattern bv) pl
-  | Ppat_or(p1, p2) -> add_pattern bv p1; add_pattern bv p2
-  | Ppat_constraint(p, ty) -> add_pattern bv p; add_type bv ty
-  | Ppat_variant(_, op) -> add_opt add_pattern bv op
+      List.iter (fun (lbl, p) -> add bv lbl; add_pattern1 bv p) pl
+  | Ppat_array pl -> List.iter (add_pattern1 bv) pl
+  | Ppat_or(p1, p2) -> add_pattern1 bv p1; add_pattern1 bv p2
+  | Ppat_constraint(p, ty) -> add_pattern1 bv p; add_type bv ty
+  | Ppat_variant(_, op) -> add_opt add_pattern1 bv op
   | Ppat_type li -> add bv li
-  | Ppat_lazy p -> add_pattern bv p
+  | Ppat_lazy p -> add_pattern1 bv p
   | Ppat_unpack id ->
       Option.iter
         (fun name -> pattern_bv := String.Map.add name bound !pattern_bv) id.txt
-  | Ppat_open ( m, p) -> let bv = open_module bv m.txt in add_pattern bv p
-  | Ppat_exception p -> add_pattern bv p
+  | Ppat_open ( m, p) -> let bv = open_module bv m.txt in add_pattern1 bv p
+  | Ppat_exception p -> add_pattern1 bv p
   | Ppat_extension e -> handle_extension e
 
-let add_pattern bv pat =
+and add_pattern bv pat =
   pattern_bv := bv;
-  add_pattern bv pat;
+  add_pattern1 bv pat;
   !pattern_bv
 
-let rec add_expr bv exp =
+and add_expr bv exp =
   match exp.pexp_desc with
     Pexp_ident l -> add bv l
   | Pexp_constant _ -> ()

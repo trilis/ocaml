@@ -49,7 +49,11 @@ exception Empty
 
 val lub : pattern -> pattern -> pattern
 (** [lub p q] is a pattern that matches all values matched by [p] and [q].
-    May raise [Empty], when [p] and [q] are not compatible. *)
+    May raise [Empty], when [p] and [q] are not compatible. 
+
+    N.B. it is impossible to compute least (exact) upper bound
+    in presence of active patterns so it replace them with [Tpat_any] 
+    resulting in some (non-exact) upper bound *)
 
 val lubs : pattern list -> pattern list -> pattern list
 (** [lubs [p1; ...; pn] [q1; ...; qk]], where [n < k], is

@@ -53,13 +53,17 @@ and pat_extra =
 and 'k pattern_desc =
   (* value patterns *)
   | Tpat_any : value pattern_desc
-  | Tpat_var : Ident.t * string loc -> value pattern_desc
+  | Tpat_var : Ident.t * string loc * var_kind -> value pattern_desc
   | Tpat_alias :
       value general_pattern * Ident.t * string loc -> value pattern_desc
   | Tpat_constant : constant -> value pattern_desc
   | Tpat_tuple : value general_pattern list -> value pattern_desc
   | Tpat_construct :
       Longident.t loc * constructor_description * value general_pattern list ->
+      value pattern_desc
+  | Tpat_active :
+      Longident.t loc * Path.t * Types.value_description *
+        expression list * pattern list ->
       value pattern_desc
   | Tpat_variant :
       label * value general_pattern option * row_desc ref ->
@@ -79,6 +83,12 @@ and 'k pattern_desc =
       'k pattern_desc
 
 and tpat_value_argument = value general_pattern
+
+and var_kind =
+  | Tvar_plain                                          (* x               *)
+  | Tvar_total_single   of Ident.t * string loc         (* (|C|)           *)
+  | Tvar_partial_single of Ident.t * string loc         (* (|C|_|)         *)
+  | Tvar_total_multi    of (Ident.t * string loc) list  (* (|C1|...|Cn|)   *)
 
 and expression =
   { exp_desc: expression_desc;
@@ -630,6 +640,7 @@ let rec classify_pattern_desc : type k . k pattern_desc -> k pattern_category =
   | Tpat_alias _ -> Value
   | Tpat_tuple _ -> Value
   | Tpat_construct _ -> Value
+  | Tpat_active _ -> Value
   | Tpat_variant _ -> Value
   | Tpat_record _ -> Value
   | Tpat_array _ -> Value
@@ -659,7 +670,7 @@ let shallow_iter_pattern_desc
   = fun f -> function
   | Tpat_alias(p, _, _) -> f.f p
   | Tpat_tuple patl -> List.iter f.f patl
-  | Tpat_construct(_, _, patl) -> List.iter f.f patl
+  | Tpat_construct(_, _, patl) | Tpat_active(_, _, _, _, patl) -> List.iter f.f patl
   | Tpat_variant(_, pat, _) -> Option.iter f.f pat
   | Tpat_record (lbl_pat_list, _) ->
       List.iter (fun (_, _, pat) -> f.f pat) lbl_pat_list
@@ -685,6 +696,8 @@ let shallow_map_pattern_desc
       Tpat_record (List.map (fun (lid, l,p) -> lid, l, f.f p) lpats, closed)
   | Tpat_construct (lid, c,pats) ->
       Tpat_construct (lid, c, List.map f.f pats)
+  | Tpat_active (lid, path, value, exprs, pats) ->
+      Tpat_active (lid, path, value, exprs, List.map f.f pats)
   | Tpat_array pats ->
       Tpat_array (List.map f.f pats)
   | Tpat_lazy p1 -> Tpat_lazy (f.f p1)
@@ -739,7 +752,7 @@ let rec iter_bound_idents
   : type k . _ -> k general_pattern -> _
   = fun f pat ->
   match pat.pat_desc with
-  | Tpat_var (id,s) ->
+  | Tpat_var (id,s,_) ->
      f (id,s,pat.pat_type)
   | Tpat_alias(p, id, s) ->
       iter_bound_idents f p;
@@ -782,9 +795,9 @@ let alpha_var env id = List.assoc id env
 let rec alpha_pat
   : type k . _ -> k general_pattern -> k general_pattern
   = fun env p -> match p.pat_desc with
-  | Tpat_var (id, s) -> (* note the ``Not_found'' case *)
+  | Tpat_var (id, s, kind) -> (* note the ``Not_found'' case *)
       {p with pat_desc =
-       try Tpat_var (alpha_var env id, s) with
+       try Tpat_var (alpha_var env id, s, kind) with
        | Not_found -> Tpat_any}
   | Tpat_alias (p1, id, s) ->
       let new_p =  alpha_pat env p1 in

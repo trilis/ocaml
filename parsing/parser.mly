@@ -578,6 +578,12 @@ let mk_directive ~loc name arg =
       pdir_loc = make_loc loc;
     }
 
+let structured_name_to_ident = function
+  | Total_single   tag  -> "(|" ^ tag.txt ^ "|)"
+  | Partial_single tag  -> "(|" ^ tag.txt ^ "|_|)"
+  | Total_multi    tags ->
+      "(|" ^ (String.concat "|" (List.map (fun t -> t.txt) tags)) ^ "|)"
+
 %}
 
 /* Tokens */
@@ -2416,7 +2422,17 @@ labeled_simple_expr:
     { xs }
 ;
 %inline let_ident:
-    val_ident { mkpatvar ~loc:$sloc $1 }
+  val_ident_pat { $1 }
+
+val_ident_pat:
+    LIDENT                    { mkpatvar ~loc:$sloc $1 }
+  | structured_name           { mkpat ~loc:$sloc (Ppat_structured_name(
+                                  mkrhs (structured_name_to_ident $1) $sloc,
+                                  $1)) }
+  | LPAREN operator RPAREN    { mkpatvar ~loc:$sloc $2 }
+  | LPAREN operator error     { unclosed "(" $loc($1) ")" $loc($3) }
+  | LPAREN error              { expecting $loc($2) "operator" }
+  | LPAREN MODULE error       { expecting $loc($3) "module-expr" }
 ;
 let_binding_body:
     let_ident strict_binding
@@ -2652,22 +2668,27 @@ pattern_no_exn:
 ;
 
 pattern_gen:
-    simple_pattern
-      { $1 }
-  | mkpat(
-      mkrhs(constr_longident) pattern %prec prec_constr_appl
-        { Ppat_construct($1, Some $2) }
-    | name_tag pattern %prec prec_constr_appl
-        { Ppat_variant($1, Some $2) }
-    ) { $1 }
+  | simple_pattern { $1 }
+  | constr_gen     { $1 }
   | LAZY ext_attributes simple_pattern
       { mkpat_attrs ~loc:$sloc (Ppat_lazy $3) $2}
 ;
+
+constr_gen:
+  | mkrhs(constr_longident) pattern %prec prec_constr_appl 
+      { mkpat ~loc:$sloc (Ppat_construct($1, Some $2)) }
+  | name_tag                pattern %prec prec_constr_appl 
+      { mkpat ~loc:$sloc (Ppat_variant  ($1, Some $2)) }
+  | LESS mkrhs(constr_longident) nonempty_llist(simple_expr) GREATER pattern 
+      %prec prec_constr_appl 
+      { mkpat ~loc:$sloc (Ppat_parameterized($2, $3, $5)) }
+  | LESS mkrhs(constr_longident) nonempty_llist(simple_expr) error
+      { unclosed "<" $loc($1) ">" $loc($4) }
+;
+
 simple_pattern:
-    mkpat(mkrhs(val_ident) %prec below_EQUAL
-      { Ppat_var ($1) })
-      { $1 }
-  | simple_pattern_not_ident { $1 }
+    val_ident_pat %prec below_EQUAL { $1 }
+  | simple_pattern_not_ident        { $1 }
 ;
 
 simple_pattern_not_ident:
@@ -2695,6 +2716,12 @@ simple_pattern_not_ident:
       { Ppat_construct($1, None) }
   | name_tag
       { Ppat_variant($1, None) }
+  | LESS mkrhs(constr_longident) nonempty_llist(simple_expr) GREATER
+      { let unit_loc = ($endpos, $endpos) in
+        Ppat_parameterized(
+          $2, $3,
+          ghpat ~loc:(unit_loc)
+            (Ppat_construct(ghrhs (Lident "()") unit_loc, None))) }
   | HASH mkrhs(type_longident)
       { Ppat_type ($2) }
   | mkrhs(mod_longident) DOT simple_delimited_pattern
@@ -2778,6 +2805,26 @@ pattern_comma_list(self):
       label, mkpat_opt_constraint ~loc:$sloc pat octy
     }
 ;
+
+structured_name:
+    LPAREN structured_name_tags BAR RPAREN
+      { match $2 with
+        | []  -> assert false
+        | [x] -> Total_single x
+        | xs  -> Total_multi  (List.rev xs) }
+  | LPAREN structured_name_tags BAR UNDERSCORE BAR RPAREN
+      { match $2 with
+        | []  -> assert false
+        | [x] -> Partial_single x
+        | _   -> not_expecting $loc($4)
+            "wildcard \"_\" because partial multi patterns are unsupported" }
+
+structured_name_tags:
+  | BAR mkrhs(UIDENT)
+      { [$2] }
+  | structured_name_tags BAR mkrhs(UIDENT)
+      { $3 ::    $1 }
+
 
 /* Value descriptions */
 
@@ -3439,6 +3486,7 @@ val_extra_ident:
 ;
 val_ident:
     LIDENT                    { $1 }
+  | structured_name           { structured_name_to_ident $1 }
   | val_extra_ident           { $1 }
 ;
 operator:

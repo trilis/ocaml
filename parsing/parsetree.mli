@@ -201,6 +201,11 @@ and pattern_desc =
         (* _ *)
   | Ppat_var of string loc
         (* x *)
+  | Ppat_structured_name of string loc * structured_name_tags
+        (* (|C|)              single-case total
+           (|C_1|...|C_n|)    multi-case  total
+           (|C|_|)            single-case partial 
+         *)
   | Ppat_alias of pattern * string loc
         (* P as 'a *)
   | Ppat_constant of constant
@@ -219,6 +224,13 @@ and pattern_desc =
         (* C                None
            C P              Some P
            C (P1, ..., Pn)  Some (Ppat_tuple [P1; ...; Pn])
+         *)
+  | Ppat_parameterized of Longident.t loc * expression list * pattern
+        (* <C E1 ... Em>                Ppat_construct ["()", None]
+           <C E1 ... Em> P              P
+           <C E1 ... Em> (P1, ..., Pn)  Ppat_tuple [P1; ...; Pn]
+           
+           Invariant: m >= 1
          *)
   | Ppat_variant of label * pattern option
         (* `A             (None)
@@ -254,6 +266,14 @@ and pattern_desc =
   | Ppat_open of Longident.t loc * pattern
         (* M.(P) *)
 
+(** Represents active patterns structured names after parse phase.
+    Then on the typing phase it will be supplemented with [Ident.t], 
+    see [Typedtree.structured_name_tags_idents] *)
+and structured_name_tags = 
+  | Total_single   of string loc       (* (|C|)           *)
+  | Partial_single of string loc       (* (|C|_|)         *)
+  | Total_multi    of string loc list  (* (|C1|...|Cn|)   *)
+
 (* Value expressions *)
 
 and expression =
@@ -268,6 +288,7 @@ and expression_desc =
   | Pexp_ident of Longident.t loc
         (* x
            M.x
+           (|ActivePattern|_|)
          *)
   | Pexp_constant of constant
         (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)

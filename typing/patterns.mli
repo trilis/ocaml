@@ -48,6 +48,8 @@ module Simple : sig
         (Longident.t loc * label_description * pattern) list * closed_flag
     | `Array of pattern list
     | `Lazy of pattern
+    | `Active of Longident.t loc * Path.t * Types.value_description *
+                         expression list * pattern list
   ]
   type pattern = view pattern_data
 
@@ -65,7 +67,7 @@ end
 module General : sig
   type view = [
     | Half_simple.view
-    | `Var of Ident.t * string loc
+    | `Var of Ident.t * string loc * var_kind
     | `Alias of pattern * Ident.t * string loc
   ]
   type pattern = view pattern_data
@@ -91,6 +93,7 @@ module Head : sig
              hence the (unit -> ...) delay *)
     | Array of int
     | Lazy
+    | Active of Longident.t loc * Path.t * Types.value_description * expression list * int
 
   type t = desc pattern_data
 

@@ -149,11 +149,15 @@ module Pat = struct
 
   let any ?loc ?attrs () = mk ?loc ?attrs Ppat_any
   let var ?loc ?attrs a = mk ?loc ?attrs (Ppat_var a)
+  let structured_name ?loc ?attrs a b = 
+    mk ?loc ?attrs (Ppat_structured_name (a, b))
   let alias ?loc ?attrs a b = mk ?loc ?attrs (Ppat_alias (a, b))
   let constant ?loc ?attrs a = mk ?loc ?attrs (Ppat_constant a)
   let interval ?loc ?attrs a b = mk ?loc ?attrs (Ppat_interval (a, b))
   let tuple ?loc ?attrs a = mk ?loc ?attrs (Ppat_tuple a)
   let construct ?loc ?attrs a b = mk ?loc ?attrs (Ppat_construct (a, b))
+  let parameterized ?loc ?attrs a b c = 
+    mk ?loc ?attrs (Ppat_parameterized (a, b, c))
   let variant ?loc ?attrs a b = mk ?loc ?attrs (Ppat_variant (a, b))
   let record ?loc ?attrs a b = mk ?loc ?attrs (Ppat_record (a, b))
   let array ?loc ?attrs a = mk ?loc ?attrs (Ppat_array a)

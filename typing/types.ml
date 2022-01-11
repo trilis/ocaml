@@ -148,6 +148,8 @@ type value_description =
 
 and value_kind =
     Val_reg                             (* Regular value *)
+  | Val_active_tag                      (* Tag of active pattern *)
+             of active_tag_kind * Longident.t            
   | Val_prim of Primitive.description   (* Primitive *)
   | Val_ivar of mutable_flag * string   (* Instance variable (mutable ?) *)
   | Val_self of (Ident.t * type_expr) Meths.t ref *
@@ -157,6 +159,11 @@ and value_kind =
                                         (* Self *)
   | Val_anc of (string * Ident.t) list * string
                                         (* Ancestor *)
+
+and active_tag_kind =
+  | Act_single
+  | Act_multi of {actm_num: int; actm_amount: int}
+  | Act_partial
 
 (* Variance *)
 

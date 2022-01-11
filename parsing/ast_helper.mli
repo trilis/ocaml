@@ -105,11 +105,15 @@ module Pat:
 
     val any: ?loc:loc -> ?attrs:attrs -> unit -> pattern
     val var: ?loc:loc -> ?attrs:attrs -> str -> pattern
+    val structured_name: ?loc:loc -> ?attrs:attrs -> str 
+                -> structured_name_tags -> pattern
     val alias: ?loc:loc -> ?attrs:attrs -> pattern -> str -> pattern
     val constant: ?loc:loc -> ?attrs:attrs -> constant -> pattern
     val interval: ?loc:loc -> ?attrs:attrs -> constant -> constant -> pattern
     val tuple: ?loc:loc -> ?attrs:attrs -> pattern list -> pattern
     val construct: ?loc:loc -> ?attrs:attrs -> lid -> pattern option -> pattern
+    val parameterized: ?loc:loc -> ?attrs:attrs -> lid -> expression list 
+                -> pattern -> pattern
     val variant: ?loc:loc -> ?attrs:attrs -> label -> pattern option -> pattern
     val record: ?loc:loc -> ?attrs:attrs -> (lid * pattern) list -> closed_flag
                 -> pattern

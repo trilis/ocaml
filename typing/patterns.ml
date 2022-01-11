@@ -60,6 +60,8 @@ module Simple = struct
         (Longident.t loc * label_description * pattern) list * closed_flag
     | `Array of pattern list
     | `Lazy of pattern
+    | `Active of Longident.t loc * Path.t * Types.value_description *
+                 expression list * pattern list
   ]
 
   type pattern = view pattern_data
@@ -79,7 +81,7 @@ end
 module General = struct
   type view = [
     | Half_simple.view
-    | `Var of Ident.t * string loc
+    | `Var of Ident.t * string loc * var_kind
     | `Alias of pattern * Ident.t * string loc
   ]
   type pattern = view pattern_data
@@ -87,10 +89,12 @@ module General = struct
   let view_desc = function
     | Tpat_any ->
        `Any
-    | Tpat_var (id, str) ->
-       `Var (id, str)
+    | Tpat_var (id, str, kind) ->
+       `Var (id, str, kind)
     | Tpat_alias (p, id, str) ->
        `Alias (p, id, str)
+    | Tpat_active(lid, path, apat, params, omegas) ->
+      `Active (lid, path, apat, params, omegas)
     | Tpat_constant cst ->
        `Constant cst
     | Tpat_tuple ps ->
@@ -110,8 +114,9 @@ module General = struct
 
   let erase_desc = function
     | `Any -> Tpat_any
-    | `Var (id, str) -> Tpat_var (id, str)
+    | `Var (id, str, kind) -> Tpat_var (id, str, kind)
     | `Alias (p, id, str) -> Tpat_alias (p, id, str)
+    | `Active (lid, path, apat, params, omegas) -> Tpat_active (lid, path, apat, params, omegas)
     | `Constant cst -> Tpat_constant cst
     | `Tuple ps -> Tpat_tuple ps
     | `Construct (cstr, cst_descr, args) ->
@@ -149,6 +154,7 @@ module Head : sig
           type_row : unit -> row_desc; }
     | Array of int
     | Lazy
+    | Active of Longident.t loc * Path.t * Types.value_description * expression list * int
 
   type t = desc pattern_data
 
@@ -176,6 +182,7 @@ end = struct
              hence the (unit -> ...) delay *)
     | Array of int
     | Lazy
+    | Active of Longident.t loc * Path.t * Types.value_description * expression list * int
 
   type t = desc pattern_data
 
@@ -207,6 +214,7 @@ end = struct
           Record lbls, pats
       | `Lazy p ->
           Lazy, [p]
+      | `Active (lid, path, apat, params, omegas) -> Active (lid, path, apat, params, List.length omegas), omegas
     in
     let desc, pats = deconstruct_desc q.pat_desc in
     { q with pat_desc = desc }, pats
@@ -220,6 +228,7 @@ end = struct
       | Record l -> List.length l
       | Variant { has_arg; _ } -> if has_arg then 1 else 0
       | Lazy -> 1
+      | Active(_, _, _, _, a) -> a
 
   let to_omega_pattern t =
     let pat_desc =
@@ -244,6 +253,7 @@ end = struct
             ) lbls
           in
           Tpat_record (lst, Closed)
+      | Active (lid, path, apat, params, a) -> Tpat_active (lid, path, apat, params, omegas a)
     in
     { t with
       pat_desc;

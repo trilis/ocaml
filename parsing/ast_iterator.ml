@@ -432,12 +432,21 @@ module P = struct
     match desc with
     | Ppat_any -> ()
     | Ppat_var s -> iter_loc sub s
+    | Ppat_structured_name (name, tags) -> 
+        iter_loc sub name;
+        begin match tags with
+        | Total_single   id -> iter_loc sub id
+        | Partial_single id -> iter_loc sub id
+        | Total_multi   ids -> List.iter (iter_loc sub) ids
+        end
     | Ppat_alias (p, s) -> sub.pat sub p; iter_loc sub s
     | Ppat_constant _ -> ()
     | Ppat_interval _ -> ()
     | Ppat_tuple pl -> List.iter (sub.pat sub) pl
     | Ppat_construct (l, p) ->
         iter_loc sub l; iter_opt (sub.pat sub) p
+    | Ppat_parameterized (l, el, p) ->
+        iter_loc sub l; List.iter (sub.expr sub) el; sub.pat sub p
     | Ppat_variant (_l, p) -> iter_opt (sub.pat sub) p
     | Ppat_record (lpl, _cf) ->
         List.iter (iter_tuple (iter_loc sub) (sub.pat sub)) lpl

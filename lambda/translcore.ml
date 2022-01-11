@@ -146,7 +146,7 @@ let rec push_defaults loc bindings cases partial =
              cases, partial) }
       in
       push_defaults loc bindings
-        [{c_lhs={pat with pat_desc = Tpat_var (param, mknoloc name)};
+        [{c_lhs={pat with pat_desc = Tpat_var(param, mknoloc name, Tvar_plain)};
           c_guard=None; c_rhs=exp}]
         Total
   | _ ->
@@ -202,7 +202,7 @@ let rec cut n l =
 
 let rec iter_exn_names f pat =
   match pat.pat_desc with
-  | Tpat_var (id, _) -> f id
+  | Tpat_var (id, _, _) -> f id
   | Tpat_alias (p, id, _) ->
       f id;
       iter_exn_names f p
@@ -214,7 +214,7 @@ let transl_ident loc env ty path desc =
       Translprim.transl_primitive loc p env ty (Some path)
   | Val_anc _ ->
       raise(Error(to_location loc, Free_super_var))
-  | Val_reg | Val_self _ ->
+  | Val_reg | Val_self _ | Val_active_tag _ ->
       transl_value_path loc env path
   |  _ -> fatal_error "Translcore.transl_exp: bad Texp_ident"
 
@@ -245,6 +245,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
   | Texp_constant cst ->
       Lconst(Const_base cst)
   | Texp_let(rec_flag, pat_expr_list, body) ->
+      
       transl_let ~scopes rec_flag pat_expr_list
         (event_before ~scopes body (transl_exp ~scopes body))
   | Texp_function { arg_label = _; param; cases; partial; } ->
@@ -900,7 +901,7 @@ and transl_let ~scopes ?(in_structure=false) rec_flag pat_expr_list =
       let idlist =
         List.map
           (fun {vb_pat=pat} -> match pat.pat_desc with
-              Tpat_var (id,_) -> id
+              Tpat_var (id,_,_) -> id
             | Tpat_alias ({pat_desc=Tpat_any}, id,_) -> id
             | _ -> assert false)
         pat_expr_list in
